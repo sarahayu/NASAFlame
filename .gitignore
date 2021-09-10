@@ -1,0 +1,7 @@
+.vs
+Debug/
+*.sln
+*.db
+*.opendb
+*.vcxproj*
+*.ini
