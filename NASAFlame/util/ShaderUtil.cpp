@@ -1,12 +1,9 @@
 #include "ShaderUtil.h"
 #include <SFML/Graphics.hpp>
-#include <glad/glad.h>
-#include <GLFW/glfw3.h>
 #include <iostream>
 #include <sstream>
 #include <fstream>
 #include <array>
-#include <glm/glm.hpp>
 
 namespace
 {
@@ -89,4 +86,23 @@ unsigned ShaderUtil::loadTexture(const std::string & file)
 	glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, GL_LINEAR);
 	glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, GL_LINEAR);*/
 	return textureID;
+}
+
+unsigned ShaderUtil::createColorBuffer(const glm::vec2 & dimensions, const unsigned & attachment)
+{
+	unsigned textureID;
+	glGenTextures(1, &textureID);
+	reloadColorBuffer(textureID, dimensions);
+	glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, GL_LINEAR);
+	glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, GL_LINEAR);
+	glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_S, GL_CLAMP_TO_EDGE);
+	glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_T, GL_CLAMP_TO_EDGE);
+	glFramebufferTexture2D(GL_FRAMEBUFFER, attachment, GL_TEXTURE_2D, textureID, 0);
+	return textureID;
+}
+
+void ShaderUtil::reloadColorBuffer(const unsigned & textureID, const glm::vec2 & newDimensions)
+{
+	glBindTexture(GL_TEXTURE_2D, textureID);
+	glTexImage2D(GL_TEXTURE_2D, 0, GL_RGBA16F, newDimensions.x, newDimensions.y, 0, GL_RGBA, GL_FLOAT, NULL);
 }

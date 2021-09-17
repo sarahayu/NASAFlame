@@ -1,6 +1,7 @@
 #pragma once
 
 #include <vector>
+#include <glm/glm.hpp>
 
 class ParticleGenerator
 {
@@ -8,7 +9,8 @@ public:
 	struct Particle
 	{
 		float x, y, z;
-		bool fire;
+		float strength;
+		float seed;
 	};
 
 	typedef std::vector<Particle> Particles;
@@ -19,6 +21,7 @@ public:
 
 	const unsigned getAmount() const;
 	const Particles& getParticles() const;
+	const Particles& getSortedParticles(const glm::vec3 &cameraPos);
 
 private:
 

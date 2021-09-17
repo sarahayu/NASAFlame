@@ -16,7 +16,10 @@ private:
 	void update(const float &deltaTime);
 	void render();
 
+	void renderObjects();
+	void renderMenu();
 	void loadResources();
+	void reloadParticleRenderable(const glm::vec3 &cameraPos = glm::vec3());
 
 	struct {
 		unsigned VAO, VBO, instanceVBO;
@@ -28,7 +31,7 @@ private:
 
 	struct {
 		unsigned ID;
-		unsigned projView, viewRot;
+		unsigned projView, viewRot, minSoot;
 	} m_particleShader;
 
 	struct {
@@ -36,13 +39,33 @@ private:
 		unsigned PVM, viewRot;
 	} m_firebloomShader;
 
+	unsigned m_screenShader;
+
 	struct {
-		unsigned particleAmt = 1300;
-		float flameRadius = 18.f;
+		unsigned ID;
+		unsigned horizontal, intensity;
+	} m_blurShader;
+
+	struct {
+		bool showMenu = true;
+		int particleAmt = 3000;
+		float flameRadius = 26.f;
+		int sootRatio = 6;
+		int blurIntensity = 4;
 	} m_userOptions;
 
 	struct {
-		float asc = 0.f, dec = 0.f, rad = 50.f;
+		unsigned FBO;
+		unsigned colorTexture, depthRBO;
+	} m_screenBuffer;
+
+	struct {
+		unsigned FBO[2];
+		unsigned colorTextures[2];
+	} m_blurBuffers;
+
+	struct {
+		float asc = 0.f, dec = 0.f, rad = 70.f;
 	} m_camera;
 
 	sf::RenderWindow m_window;
