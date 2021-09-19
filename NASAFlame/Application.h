@@ -26,8 +26,8 @@ private:
 	} m_particleRenderable;
 
 	struct {
-		unsigned VAO, VBO;
-	} m_bloomRenderable;
+		unsigned VAO, VBO, EBO;
+	} m_sphereRenderable;
 
 	struct {
 		unsigned ID;
@@ -36,7 +36,7 @@ private:
 
 	struct {
 		unsigned ID;
-		unsigned PVM, viewRot;
+		unsigned projView, model, blueBloom;
 	} m_firebloomShader;
 
 	unsigned m_screenShader;

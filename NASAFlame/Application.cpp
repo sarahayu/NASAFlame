@@ -12,6 +12,7 @@
 
 #include "util/ShaderUtil.h"
 #include "util/MathUtil.h"
+#include "util/IcosphereGenerator.h"
 
 namespace
 {
@@ -29,6 +30,9 @@ namespace
 	};
 	const unsigned VERTEX_COUNT = 64;
 	const auto CIRCLE_VERTICES = MathUtil::generateCircle<VERTEX_COUNT * 2>();
+
+	const unsigned ISPHERE_LOD = 4;
+	const auto ISPHERE = generateIcosphereMesh(ISPHERE_LOD);
 }
 
 Application::Application()
@@ -45,6 +49,7 @@ Application::Application()
 	glViewport(0, 0, SCR_WIDTH, SCR_WIDTH);
 	glClearColor(0.f, 0.f, 0.f, 1.f);
 	glEnable(GL_BLEND);
+	glEnable(GL_CULL_FACE);
 
 	ImGui::SFML::Init(m_window);
 
@@ -207,19 +212,22 @@ void Application::renderObjects()
 	reloadParticleRenderable(cameraPos);
 	glDrawArraysInstanced(GL_TRIANGLE_STRIP, 0, 4, m_particles.getAmount());
 
-	projView =
-		glm::perspective(glm::radians(45.0f), (float)m_window.getSize().x / m_window.getSize().y, 0.1f, 200.f)
-		* glm::translate(glm::mat4(1.f), { 0.f, 0.f, -m_camera.rad })
-		* glm::scale(glm::mat4(1.f), glm::vec3(m_userOptions.flameRadius + 3.f))
-		* viewRot;
+	auto bloomSize = glm::scale(glm::mat4(1.f), glm::vec3(m_userOptions.flameRadius));
 
-	glDisable(GL_DEPTH_TEST);
 	glUseProgram(m_firebloomShader.ID);
-	glUniformMatrix4fv(m_firebloomShader.PVM, 1, GL_FALSE, glm::value_ptr(projView));
-	glUniformMatrix4fv(m_firebloomShader.viewRot, 1, GL_FALSE, glm::value_ptr(viewRot));
+	glUniformMatrix4fv(m_firebloomShader.projView, 1, GL_FALSE, glm::value_ptr(projView));
+	glUniformMatrix4fv(m_firebloomShader.model, 1, GL_FALSE, glm::value_ptr(bloomSize));
+	glUniform1i(m_firebloomShader.blueBloom, 0);
 
-	glBindVertexArray(m_bloomRenderable.VAO);
-	glDrawArrays(GL_TRIANGLE_FAN, 0, CIRCLE_VERTICES.size());
+	glBindVertexArray(m_sphereRenderable.VAO);
+	glDrawElements(GL_TRIANGLES, ISPHERE.indices.size(), GL_UNSIGNED_INT, 0);
+
+	bloomSize = glm::scale(glm::mat4(1.f), glm::vec3(m_userOptions.flameRadius + 3.f));
+
+	glUniformMatrix4fv(m_firebloomShader.model, 1, GL_FALSE, glm::value_ptr(bloomSize));
+	glUniform1i(m_firebloomShader.blueBloom, 1);
+
+	glDrawElements(GL_TRIANGLES, ISPHERE.indices.size(), GL_UNSIGNED_INT, 0);
 
 	bool horizontal = true, first_iteration = true;
 	glUseProgram(m_blurShader.ID);
@@ -276,10 +284,8 @@ void Application::renderMenu()
 void Application::loadResources()
 {
 	glGenVertexArrays(1, &m_particleRenderable.VAO);
-	glGenVertexArrays(1, &m_bloomRenderable.VAO);
 	glGenBuffers(1, &m_particleRenderable.VBO);
 	glGenBuffers(1, &m_particleRenderable.instanceVBO);
-	glGenBuffers(1, &m_bloomRenderable.VBO);
 
 	glBindVertexArray(m_particleRenderable.VAO);
 
@@ -290,12 +296,18 @@ void Application::loadResources()
 
 	reloadParticleRenderable();
 
-	glBindVertexArray(m_bloomRenderable.VAO);
+	glGenVertexArrays(1, &m_sphereRenderable.VAO);
+	glGenBuffers(1, &m_sphereRenderable.VBO);
+	glGenBuffers(1, &m_sphereRenderable.EBO);
 
-	glBindBuffer(GL_ARRAY_BUFFER, m_bloomRenderable.VBO);
-	glBufferData(GL_ARRAY_BUFFER, sizeof(float) * CIRCLE_VERTICES.size(), CIRCLE_VERTICES.data(), GL_STATIC_DRAW);
+	glBindVertexArray(m_sphereRenderable.VAO);
+
+	glBindBuffer(GL_ARRAY_BUFFER, m_sphereRenderable.VBO);
+	glBufferData(GL_ARRAY_BUFFER, sizeof(ISphere::PosArray::value_type) * ISPHERE.positions.size(), ISPHERE.positions.data(), GL_STATIC_DRAW);
 	glEnableVertexAttribArray(0);
-	glVertexAttribPointer(0, 2, GL_FLOAT, GL_FALSE, 0, (void*)0);
+	glVertexAttribPointer(0, 3, GL_FLOAT, GL_FALSE, 0, (void*)0);
+	glBindBuffer(GL_ELEMENT_ARRAY_BUFFER, m_sphereRenderable.EBO);
+	glBufferData(GL_ELEMENT_ARRAY_BUFFER, sizeof(ISphere::IndArray::value_type) * ISPHERE.indices.size(), ISPHERE.indices.data(), GL_STATIC_DRAW);
 
 	glGenFramebuffers(1, &m_screenBuffer.FBO);
 	glGenTextures(1, &m_screenBuffer.colorTexture);
@@ -339,8 +351,9 @@ void Application::loadResources()
 
 	m_firebloomShader.ID = ShaderUtil::loadShader("firebloom-shader");
 	glUseProgram(m_firebloomShader.ID);
-	m_firebloomShader.PVM = glGetUniformLocation(m_firebloomShader.ID, "PVM");
-	m_firebloomShader.viewRot = glGetUniformLocation(m_firebloomShader.ID, "viewRot");
+	m_firebloomShader.projView = glGetUniformLocation(m_firebloomShader.ID, "projView");
+	m_firebloomShader.model = glGetUniformLocation(m_firebloomShader.ID, "model");
+	m_firebloomShader.blueBloom = glGetUniformLocation(m_firebloomShader.ID, "blueBloom");
 
 	m_screenShader = ShaderUtil::loadShader("screen-shader");
 	glUseProgram(m_screenShader);
