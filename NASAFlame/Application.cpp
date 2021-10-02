@@ -5,7 +5,6 @@
 #include <glm/gtc/matrix_transform.hpp>
 #include <glm/gtc/type_ptr.hpp>
 #include <GLFW/glfw3.h>
-#include <imgui/imgui.h>
 #include <imgui/imgui-SFML.h>
 #include <iostream>
 #include <array>
@@ -31,7 +30,7 @@ namespace
 	const unsigned VERTEX_COUNT = 64;
 	const auto CIRCLE_VERTICES = MathUtil::generateCircle<VERTEX_COUNT * 2>();
 
-	const unsigned ISPHERE_LOD = 4;
+	const unsigned ISPHERE_LOD = 5;
 	const auto ISPHERE = generateIcosphereMesh(ISPHERE_LOD);
 }
 
@@ -129,8 +128,9 @@ void Application::input(const float & deltaTime)
 			m_camera.dec = std::min(std::max(m_camera.dec, -glm::radians(90.f)), glm::radians(90.f));
 			break;
 		case sf::Event::MouseButtonPressed:
-			if (evnt.mouseButton.button == sf::Mouse::Left)
+			if (evnt.mouseButton.button == sf::Mouse::Left && !isMouseInMenu(evnt.mouseButton.x, evnt.mouseButton.y))
 			{
+				//std::cout << "\n" << m_userOptions.menuBB.x << ", " << m_userOptions.menuBB.y << ", " << m_userOptions.menuBB.z << ", " << m_userOptions.menuBB.w;
 				lastX = evnt.mouseButton.x;
 				lastY = evnt.mouseButton.y;
 			}
@@ -197,7 +197,7 @@ void Application::renderObjects()
 	const auto translation = glm::translate(glm::mat4(1.f), { 0.f, 0.f, -m_camera.rad });
 
 	auto projView =
-		glm::perspective(glm::radians(45.0f), (float)m_window.getSize().x / m_window.getSize().y, 0.1f, 200.f)
+		glm::perspective(glm::radians(20.f), (float)m_window.getSize().x / m_window.getSize().y, 0.1f, 200.f)
 		* translation
 		* viewRot;
 
@@ -205,6 +205,8 @@ void Application::renderObjects()
 	glUniformMatrix4fv(m_particleShader.projView, 1, GL_FALSE, glm::value_ptr(projView));
 	glUniformMatrix4fv(m_particleShader.viewRot, 1, GL_FALSE, glm::value_ptr(viewRot));
 	glUniform1f(m_particleShader.minSoot, 1.f / m_userOptions.sootRatio);
+	glUniform1f(m_particleShader.fogOffset, m_camera.rad - m_userOptions.flameRadius + m_userOptions.fogOffset);
+	glUniform1f(m_particleShader.fogFactor, m_userOptions.flameRadius * 2 * 1.2f * m_userOptions.fogFactor);
 
 	const auto cameraPos = MathUtil::getCameraPos(-translation * viewRot);
 
@@ -218,31 +220,31 @@ void Application::renderObjects()
 	glUniformMatrix4fv(m_firebloomShader.projView, 1, GL_FALSE, glm::value_ptr(projView));
 	glUniformMatrix4fv(m_firebloomShader.model, 1, GL_FALSE, glm::value_ptr(bloomSize));
 	glUniform1i(m_firebloomShader.blueBloom, 0);
+	glUniform3f(m_firebloomShader.cameraPos, cameraPos.x, cameraPos.y, cameraPos.z);
 
 	glBindVertexArray(m_sphereRenderable.VAO);
 	glDrawElements(GL_TRIANGLES, ISPHERE.indices.size(), GL_UNSIGNED_INT, 0);
 
-	bloomSize = glm::scale(glm::mat4(1.f), glm::vec3(m_userOptions.flameRadius + 3.f));
+	bloomSize = glm::scale(glm::mat4(1.f), glm::vec3(m_userOptions.flameRadius + 1.5f));
 
 	glUniformMatrix4fv(m_firebloomShader.model, 1, GL_FALSE, glm::value_ptr(bloomSize));
 	glUniform1i(m_firebloomShader.blueBloom, 1);
 
 	glDrawElements(GL_TRIANGLES, ISPHERE.indices.size(), GL_UNSIGNED_INT, 0);
 
-	bool horizontal = true, first_iteration = true;
+	bool horizontal = true, firstIteration = true;
 	glUseProgram(m_blurShader.ID);
 	for (unsigned int i = 0; i < m_userOptions.blurIntensity * 2; i++)
 	{
 		glBindFramebuffer(GL_FRAMEBUFFER, m_blurBuffers.FBO[horizontal]);
 		glUniform1i(m_blurShader.horizontal, horizontal);
 		glBindTexture(
-			GL_TEXTURE_2D, first_iteration ? m_screenBuffer.colorTexture : m_blurBuffers.colorTextures[!horizontal]
+			GL_TEXTURE_2D, firstIteration ? m_screenBuffer.colorTexture : m_blurBuffers.colorTextures[!horizontal]
 		);
 		glBindVertexArray(m_particleRenderable.VAO);
 		glDrawArrays(GL_TRIANGLE_STRIP, 0, 4);
 		horizontal = !horizontal;
-		if (first_iteration)
-			first_iteration = false;
+		firstIteration = false;
 	}
 
 	glBindFramebuffer(GL_FRAMEBUFFER, 0);
@@ -272,8 +274,17 @@ void Application::renderMenu()
 		ImGui::DragFloat("Flame radius", &m_userOptions.flameRadius, 1.f, 1.f, 100.f);
 		ImGui::DragInt("Soot to spark ratio", &m_userOptions.sootRatio, 1.f, 1, 50, "1:%d");
 		ImGui::DragInt("Blur intensity", &m_userOptions.blurIntensity, 1.f, 1, 8);
+		ImGui::DragFloat("Fog offset", &m_userOptions.fogOffset);
+		ImGui::DragFloat("Fog factor", &m_userOptions.fogFactor, 0.05f);
 		if (ImGui::Button("Update"))
 			m_particles = ParticleGenerator(m_userOptions.particleAmt, m_userOptions.flameRadius);
+
+		m_userOptions.menuBB = {
+			ImGui::GetWindowPos().x,
+			ImGui::GetWindowPos().y,
+			ImGui::GetWindowPos().x + ImGui::GetWindowWidth(),
+			ImGui::GetWindowPos().y + ImGui::GetWindowHeight()
+		};
 
 		ImGui::End();
 	}
@@ -347,13 +358,15 @@ void Application::loadResources()
 	glUseProgram(m_particleShader.ID);
 	m_particleShader.projView = glGetUniformLocation(m_particleShader.ID, "projView");
 	m_particleShader.viewRot = glGetUniformLocation(m_particleShader.ID, "viewRot");
-	m_particleShader.minSoot = glGetUniformLocation(m_particleShader.ID, "minSoot");
+	m_particleShader.fogOffset = glGetUniformLocation(m_particleShader.ID, "fogOffset");
+	m_particleShader.fogFactor = glGetUniformLocation(m_particleShader.ID, "fogFactor");
 
 	m_firebloomShader.ID = ShaderUtil::loadShader("firebloom-shader");
 	glUseProgram(m_firebloomShader.ID);
 	m_firebloomShader.projView = glGetUniformLocation(m_firebloomShader.ID, "projView");
 	m_firebloomShader.model = glGetUniformLocation(m_firebloomShader.ID, "model");
 	m_firebloomShader.blueBloom = glGetUniformLocation(m_firebloomShader.ID, "blueBloom");
+	m_firebloomShader.cameraPos = glGetUniformLocation(m_firebloomShader.ID, "cameraPos");
 
 	m_screenShader = ShaderUtil::loadShader("screen-shader");
 	glUseProgram(m_screenShader);
@@ -379,4 +392,12 @@ void Application::reloadParticleRenderable(const glm::vec3 & cameraPos)
 	glEnableVertexAttribArray(3);
 	glVertexAttribPointer(3, 1, GL_FLOAT, GL_FALSE, sizeof(ParticleGenerator::Particle), (void*)(offsetof(ParticleGenerator::Particle, seed)));
 	glVertexAttribDivisor(3, 1);
+}
+
+bool Application::isMouseInMenu(const float & x, const float & y) const
+{
+	return x > m_userOptions.menuBB.x
+		&& x < m_userOptions.menuBB.z
+		&& y > m_userOptions.menuBB.y
+		&& y < m_userOptions.menuBB.w;
 }

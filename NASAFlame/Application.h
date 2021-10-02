@@ -1,6 +1,7 @@
 #pragma once
 
 #include <SFML/Graphics.hpp>
+#include <imgui/imgui.h>
 
 #include "ParticleGenerator.h"
 
@@ -20,6 +21,7 @@ private:
 	void renderMenu();
 	void loadResources();
 	void reloadParticleRenderable(const glm::vec3 &cameraPos = glm::vec3());
+	bool isMouseInMenu(const float &x, const float &y) const;
 
 	struct {
 		unsigned VAO, VBO, instanceVBO;
@@ -31,12 +33,12 @@ private:
 
 	struct {
 		unsigned ID;
-		unsigned projView, viewRot, minSoot;
+		unsigned projView, viewRot, minSoot, fogOffset, fogFactor;
 	} m_particleShader;
 
 	struct {
 		unsigned ID;
-		unsigned projView, model, blueBloom;
+		unsigned projView, model, blueBloom, cameraPos;
 	} m_firebloomShader;
 
 	unsigned m_screenShader;
@@ -48,10 +50,14 @@ private:
 
 	struct {
 		bool showMenu = true;
-		int particleAmt = 3000;
-		float flameRadius = 26.f;
-		int sootRatio = 6;
-		int blurIntensity = 4;
+		int particleAmt = 2750;
+		float flameRadius = 25.f;
+		int sootRatio = 5;
+		int blurIntensity = 8;
+		float fogOffset = 0.f;
+		float fogFactor = 1.f;
+
+		ImVec4 menuBB;
 	} m_userOptions;
 
 	struct {
@@ -65,7 +71,7 @@ private:
 	} m_blurBuffers;
 
 	struct {
-		float asc = 0.f, dec = 0.f, rad = 70.f;
+		float asc = 0.f, dec = 0.f, rad = 150.f;
 	} m_camera;
 
 	sf::RenderWindow m_window;

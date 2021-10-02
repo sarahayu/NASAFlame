@@ -17,8 +17,8 @@ varying float v_minSoot;
 void main()
 {
 	float strengthSize = l_seed < minSoot ? 0.6 + 0.4 * l_strength : 0.1 + 0.2 * l_strength;
-	gl_Position = projView * (transpose(viewRot) * vec4(l_pos * strengthSize, 0.0, 1.0) + vec4(l_offset, 0.0));
-	v_texturePos = l_pos.xy + vec2(0.5, 0.5);
+	gl_Position = projView * (transpose(viewRot) * vec4(l_pos * strengthSize * 2, 0.0, 1.0) + vec4(l_offset, 0.0));
+	v_texturePos = (l_pos.xy + vec2(0.5, 0.5)) * 2;
 	v_strength = l_strength;
 	v_seed = l_seed;
 	v_minSoot = minSoot;

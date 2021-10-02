@@ -7,5 +7,5 @@ varying vec2 v_texturePos;
 
 void main()
 {
-	FragColor = texture(screenTexture, v_texturePos);
+	FragColor = texture(screenTexture, v_texturePos) * 1.1;
 } 
