@@ -21,7 +21,10 @@ ParticleGenerator::ParticleGenerator(const unsigned & amount, const float & rang
 			X3 = (float)(std::rand() % (precision * 2 + 1) - precision) / precision;
 
 		const float len = std::sqrt(X1 * X1 + X2 * X2 + X3 * X3);
-		const float randdist = range * std::cbrt(U) + (float)(std::rand() % 20) / 10.f - 1.f;
+		float randOffset = (float)(std::rand() % 20) / 10.f - 1.f;
+		float randOffsetSq = std::pow(randOffset, 5);
+		if (randOffset < 0.f) randOffsetSq = -randOffsetSq;
+		const float randdist = range * std::cbrt(U) + randOffsetSq * 4.f;
 
 		m_particles[i] = {
 			randdist * X1 / len,						// x

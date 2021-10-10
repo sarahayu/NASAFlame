@@ -50,9 +50,9 @@ private:
 
 	struct {
 		bool showMenu = true;
-		int particleAmt = 2750;
-		float flameRadius = 25.f;
-		int sootRatio = 5;
+		int particleAmt = 3500;
+		float flameRadius = 27.2f;
+		int sootRatio = 7;
 		int blurIntensity = 8;
 		float fogOffset = 0.f;
 		float fogFactor = 1.f;
