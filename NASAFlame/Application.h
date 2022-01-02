@@ -33,12 +33,12 @@ private:
 
 	struct {
 		unsigned ID;
-		unsigned projView, viewRot, minSoot, fogOffset, fogFactor;
+		unsigned projView, viewRot, minSoot, fogOffset, fogFactor, timeOffset;
 	} m_particleShader;
 
 	struct {
 		unsigned ID;
-		unsigned projView, model, blueBloom, cameraPos;
+		unsigned projView, model, blueBloom, cameraPos, timeOffset;
 	} m_firebloomShader;
 
 	unsigned m_screenShader;
@@ -50,12 +50,14 @@ private:
 
 	struct {
 		bool showMenu = true;
+		bool autoPlay = true;
 		int particleAmt = 3500;
 		float flameRadius = 27.2f;
-		int sootRatio = 7;
+		int sootRatio = 9;
 		int blurIntensity = 8;
 		float fogOffset = 0.f;
 		float fogFactor = 1.f;
+		float timeOffset = 0.5f;
 
 		ImVec4 menuBB;
 	} m_userOptions;
@@ -71,7 +73,7 @@ private:
 	} m_blurBuffers;
 
 	struct {
-		float asc = 0.f, dec = 0.f, rad = 150.f;
+		float rasc = 0.f, dec = 3.1415f / 12, rad = 180.f;
 	} m_camera;
 
 	sf::RenderWindow m_window;

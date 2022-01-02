@@ -7,19 +7,21 @@ uniform int blueBloom;
 uniform vec3 cameraPos;
 uniform float blueBloomOffset = 1.5f;
 uniform float heatShieldThickness = 3.f;
+uniform float timeOffset;
 
 varying vec4 v_worldPos;
 varying float v_thickness;
 
 void main()
 {
+	float timeActual = pow(timeOffset, 0.4) * 1.1;
 	mat4 scaledModel = model;
 	if (blueBloom == 0) scaledModel[1][1] *= 0.9;
 
-	vec4 worldPos = scaledModel * vec4(l_pos, 1.0);
+	vec4 worldPos = scaledModel * vec4(l_pos * timeActual, 1.0);
 	gl_Position = projView * worldPos;
 
-	float radius = scaledModel[0][0];
+	float radius = scaledModel[0][0] * timeActual;
 
 	vec3 ray = normalize(worldPos.xyz - cameraPos);
 	float a = ray.x * ray.x + ray.y * ray.y + ray.z * ray.z;

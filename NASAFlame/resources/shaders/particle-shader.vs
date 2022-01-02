@@ -8,6 +8,7 @@ uniform mat4 projView;
 uniform mat4 viewRot;
 uniform float minSoot;
 uniform float textureScale;
+uniform float timeOffset;
 
 varying vec2 v_texturePos;
 varying float v_strength;
@@ -19,7 +20,7 @@ void main()
 {
 	float strengthSize = l_seed < minSoot ? 0.6 + 0.4 * l_strength : 0.1 + 0.2 * l_strength;
 	v_blurAllowance = 7.0;
-	gl_Position = projView * (transpose(viewRot) * vec4(l_pos * strengthSize * v_blurAllowance, 0.0, 1.0) + vec4(l_offset, 0.0));
+	gl_Position = projView * (transpose(viewRot) * vec4(l_pos * strengthSize * v_blurAllowance, 0.0, 1.0) + vec4(l_offset * pow(timeOffset, 0.4) * 1.1, 0.0));
 	v_texturePos = l_pos.xy * 2;
 	v_strength = l_strength;
 	v_seed = l_seed;

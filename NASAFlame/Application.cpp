@@ -15,11 +15,11 @@
 
 namespace
 {
-	const unsigned SCR_WIDTH = 600;
+	const unsigned SCR_WIDTH = 700;
 	const float FRAMELEN = 1.f / 60;
-	const float PAN_SPEED = 60.f;
+	const float PAN_SPEED = glm::pi<float>();
 	const float ZOOM_SPEED = 50.f;
-	const float MOUSE_SENSITIVITY = 0.01f;
+	const float MOUSE_SENSITIVITY = 0.5f;
 
 	const float QUAD_VERTICES[] = {
 		-0.5f, -0.5f,
@@ -83,8 +83,17 @@ void Application::run()
 void Application::input(const float & deltaTime)
 {
 	static int lastX = MAXINT, lastY = MAXINT;
+	static float worldTime = 0.f;
 
 	ImGui::SFML::Update(m_window, sf::seconds(deltaTime));
+	
+	if (m_userOptions.autoPlay)
+	{
+		worldTime += deltaTime;
+		worldTime = std::fmod(worldTime, 1.2f);
+
+		m_userOptions.timeOffset = std::min(1.f, worldTime);
+	}
 
 	sf::Event evnt;
 
@@ -104,10 +113,10 @@ void Application::input(const float & deltaTime)
 			switch (evnt.key.code)
 			{
 			case sf::Keyboard::Left:
-				m_camera.asc += PAN_SPEED * deltaTime;
+				m_camera.rasc -= PAN_SPEED * deltaTime;
 				break;
 			case sf::Keyboard::Right:
-				m_camera.asc -= PAN_SPEED * deltaTime;
+				m_camera.rasc += PAN_SPEED * deltaTime;
 				break;
 			case sf::Keyboard::Down:
 				m_camera.dec -= PAN_SPEED * deltaTime;
@@ -147,7 +156,7 @@ void Application::input(const float & deltaTime)
 				const int deltaX = lastX - evnt.mouseMove.x, deltaY = lastY - evnt.mouseMove.y;
 				if (std::abs(deltaX) > std::abs(deltaY))
 				{
-					m_camera.asc -= PAN_SPEED * deltaTime * deltaX * MOUSE_SENSITIVITY;
+					m_camera.rasc -= PAN_SPEED * deltaTime * deltaX * MOUSE_SENSITIVITY;
 				}
 				else
 				{
@@ -192,12 +201,12 @@ void Application::renderObjects()
 
 	// draw shit
 	const auto viewRot = glm::rotate(glm::mat4(1.f), m_camera.dec, { 1.f, 0.f, 0.f })
-		* glm::rotate(glm::mat4(1.f), m_camera.asc, { 0.f, 1.f, 0.f });
+		* glm::rotate(glm::mat4(1.f), m_camera.rasc, { 0.f, 1.f, 0.f });
 
 	const auto translation = glm::translate(glm::mat4(1.f), { 0.f, 0.f, -m_camera.rad });
 
 	auto projView =
-		glm::perspective(glm::radians(20.f), (float)m_window.getSize().x / m_window.getSize().y, 0.1f, 200.f)
+		glm::perspective(glm::radians(20.f), (float)m_window.getSize().x / m_window.getSize().y, 0.1f, 300.f)
 		* translation
 		* viewRot;
 
@@ -207,6 +216,7 @@ void Application::renderObjects()
 	glUniform1f(m_particleShader.minSoot, 1.f / m_userOptions.sootRatio);
 	glUniform1f(m_particleShader.fogOffset, m_camera.rad - m_userOptions.flameRadius + m_userOptions.fogOffset);
 	glUniform1f(m_particleShader.fogFactor, m_userOptions.flameRadius * 2 * 1.2f * m_userOptions.fogFactor);
+	glUniform1f(m_particleShader.timeOffset, m_userOptions.timeOffset);
 
 	const auto cameraPos = MathUtil::getCameraPos(-translation * viewRot);
 
@@ -221,6 +231,7 @@ void Application::renderObjects()
 	glUniformMatrix4fv(m_firebloomShader.model, 1, GL_FALSE, glm::value_ptr(bloomSize));
 	glUniform1i(m_firebloomShader.blueBloom, 0);
 	glUniform3f(m_firebloomShader.cameraPos, cameraPos.x, cameraPos.y, cameraPos.z);
+	glUniform1f(m_firebloomShader.timeOffset, m_userOptions.timeOffset);
 
 	glBindVertexArray(m_sphereRenderable.VAO);
 	glDrawElements(GL_TRIANGLES, ISPHERE.indices.size(), GL_UNSIGNED_INT, 0);
@@ -276,8 +287,13 @@ void Application::renderMenu()
 		ImGui::DragInt("Blur intensity", &m_userOptions.blurIntensity, 1.f, 1, 8);
 		ImGui::DragFloat("Fog offset", &m_userOptions.fogOffset);
 		ImGui::DragFloat("Fog factor", &m_userOptions.fogFactor, 0.05f);
+		ImGui::DragFloat("Time offset", &m_userOptions.timeOffset, 0.0015f, 0.f, 1.f);
 		if (ImGui::Button("Update"))
 			m_particles = ParticleGenerator(m_userOptions.particleAmt, m_userOptions.flameRadius);
+		if ((m_userOptions.autoPlay && ImGui::Button("Pause"))
+			|| (!m_userOptions.autoPlay && ImGui::Button("Play")))
+			m_userOptions.autoPlay = !m_userOptions.autoPlay;
+
 
 		m_userOptions.menuBB = {
 			ImGui::GetWindowPos().x,
@@ -360,6 +376,7 @@ void Application::loadResources()
 	m_particleShader.viewRot = glGetUniformLocation(m_particleShader.ID, "viewRot");
 	m_particleShader.fogOffset = glGetUniformLocation(m_particleShader.ID, "fogOffset");
 	m_particleShader.fogFactor = glGetUniformLocation(m_particleShader.ID, "fogFactor");
+	m_particleShader.timeOffset = glGetUniformLocation(m_particleShader.ID, "timeOffset");
 
 	m_firebloomShader.ID = ShaderUtil::loadShader("firebloom-shader");
 	glUseProgram(m_firebloomShader.ID);
@@ -367,6 +384,7 @@ void Application::loadResources()
 	m_firebloomShader.model = glGetUniformLocation(m_firebloomShader.ID, "model");
 	m_firebloomShader.blueBloom = glGetUniformLocation(m_firebloomShader.ID, "blueBloom");
 	m_firebloomShader.cameraPos = glGetUniformLocation(m_firebloomShader.ID, "cameraPos");
+	m_firebloomShader.timeOffset = glGetUniformLocation(m_firebloomShader.ID, "timeOffset");
 
 	m_screenShader = ShaderUtil::loadShader("screen-shader");
 	glUseProgram(m_screenShader);
