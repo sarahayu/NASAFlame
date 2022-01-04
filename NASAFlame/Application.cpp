@@ -6,6 +6,9 @@
 #include <glm/gtc/type_ptr.hpp>
 #include <GLFW/glfw3.h>
 #include <imgui/imgui-SFML.h>
+#define STB_IMAGE_WRITE_STATIC
+#define STB_IMAGE_WRITE_IMPLEMENTATION
+#include <stb_image_write.h>
 #include <iostream>
 #include <array>
 #include <fstream>
@@ -13,9 +16,6 @@
 #include "util/ShaderUtil.h"
 #include "util/MathUtil.h"
 #include "util/IcosphereGenerator.h"
-#define STB_IMAGE_WRITE_STATIC
-#define STB_IMAGE_WRITE_IMPLEMENTATION
-#include "util/stb_image_write.h"
 
 namespace
 {
