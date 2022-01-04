@@ -8,14 +8,17 @@
 #include <imgui/imgui-SFML.h>
 #include <iostream>
 #include <array>
+#include <fstream>
 
 #include "util/ShaderUtil.h"
 #include "util/MathUtil.h"
 #include "util/IcosphereGenerator.h"
+#define STB_IMAGE_WRITE_STATIC
+#define STB_IMAGE_WRITE_IMPLEMENTATION
+#include "util/stb_image_write.h"
 
 namespace
 {
-	const unsigned SCR_WIDTH = 700;
 	const float FRAMELEN = 1.f / 60;
 	const float PAN_SPEED = glm::pi<float>();
 	const float ZOOM_SPEED = 50.f;
@@ -39,9 +42,21 @@ Application::Application()
 {
 	srand(time(0));
 
+	std::ifstream config("winsize.txt");
+
+	if (!config.is_open())
+	{
+		m_running = false;
+		return;
+	}
+
+	config >> SCR_WIDTH;
+	config.close();
+
 	sf::ContextSettings settings;
 	settings.depthBits = 24;
-	m_window.create(sf::VideoMode(SCR_WIDTH, SCR_WIDTH), "NASA Flame", sf::Style::Default, settings);
+	settings.antialiasingLevel = 4;
+	m_window.create(sf::VideoMode(SCR_WIDTH, SCR_WIDTH), "NASA Flame", sf::Style::Titlebar | sf::Style::Close, settings);
 
 	if (!gladLoadGL()) exit(-1);
 
@@ -49,18 +64,23 @@ Application::Application()
 	glClearColor(0.f, 0.f, 0.f, 1.f);
 	glEnable(GL_BLEND);
 	glEnable(GL_CULL_FACE);
+	stbi_flip_vertically_on_write(true);
 
 	ImGui::SFML::Init(m_window);
 
 	loadResources();
+
+	m_running = true;
 }
 
 void Application::run()
 {
+	if (!m_running) return;
+
 	sf::Clock clock;
 	float accumulated = 0.f;
 
-	while (m_window.isOpen())
+	while (m_running)
 	{
 		const float deltaTime = clock.restart().asSeconds();
 		accumulated += deltaTime;
@@ -104,6 +124,7 @@ void Application::input(const float & deltaTime)
 		switch (evnt.type)
 		{
 		case sf::Event::Closed:
+			m_running = false;
 			m_window.close();
 			break;
 		case sf::Event::Resized:
@@ -272,27 +293,36 @@ void Application::renderObjects()
 	glDrawArrays(GL_TRIANGLE_STRIP, 0, 4);
 
 	glBindVertexArray(0);
+
+	if (m_userOptions.saveOnNextRender)
+	{
+		m_userOptions.saveOnNextRender = false;
+		saveImage();
+	}
 }
 
 void Application::renderMenu()
 {
 	if (m_userOptions.showMenu)
 	{
-		ImGui::Begin("Options menu", NULL, ImGuiWindowFlags_AlwaysAutoResize);
+		ImGui::Begin("Options menu (F1 to toggle)", NULL, ImGuiWindowFlags_AlwaysAutoResize);
 
 		ImGui::PushItemWidth(100.f);
 		ImGui::DragInt("Particle amount", &m_userOptions.particleAmt, 2.f, 1, 50000);
 		ImGui::DragFloat("Flame radius", &m_userOptions.flameRadius, 1.f, 1.f, 100.f);
+		if (ImGui::Button("Update"))
+			m_particles = ParticleGenerator(m_userOptions.particleAmt, m_userOptions.flameRadius);
 		ImGui::DragInt("Soot to spark ratio", &m_userOptions.sootRatio, 1.f, 1, 50, "1:%d");
 		ImGui::DragInt("Blur intensity", &m_userOptions.blurIntensity, 1.f, 1, 8);
 		ImGui::DragFloat("Fog offset", &m_userOptions.fogOffset);
 		ImGui::DragFloat("Fog factor", &m_userOptions.fogFactor, 0.05f);
 		ImGui::DragFloat("Time offset", &m_userOptions.timeOffset, 0.0015f, 0.f, 1.f);
-		if (ImGui::Button("Update"))
-			m_particles = ParticleGenerator(m_userOptions.particleAmt, m_userOptions.flameRadius);
 		if ((m_userOptions.autoPlay && ImGui::Button("Pause"))
 			|| (!m_userOptions.autoPlay && ImGui::Button("Play")))
 			m_userOptions.autoPlay = !m_userOptions.autoPlay;
+		ImGui::InputText("Save to file", m_userOptions.imageFilename, sizeof(m_userOptions.imageFilename));
+		if (ImGui::Button("Save"))
+			m_userOptions.saveOnNextRender = true;
 
 
 		m_userOptions.menuBB = {
@@ -418,4 +448,13 @@ bool Application::isMouseInMenu(const float & x, const float & y) const
 		&& x < m_userOptions.menuBB.z
 		&& y > m_userOptions.menuBB.y
 		&& y < m_userOptions.menuBB.w;
+}
+
+void Application::saveImage()
+{
+	std::vector<GLubyte> data(3 * SCR_WIDTH * SCR_WIDTH, 0);
+	glBindFramebuffer(GL_FRAMEBUFFER, 0);
+	glReadPixels(0, 0, SCR_WIDTH, SCR_WIDTH, GL_RGB, GL_UNSIGNED_BYTE, data.data());
+	stbi_write_png(m_userOptions.imageFilename, SCR_WIDTH, SCR_WIDTH, 3, data.data(), SCR_WIDTH * 3);
+	std::cout << "\nSaved to " << m_userOptions.imageFilename << "!";
 }

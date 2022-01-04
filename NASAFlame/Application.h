@@ -23,6 +23,8 @@ private:
 	void reloadParticleRenderable(const glm::vec3 &cameraPos = glm::vec3());
 	bool isMouseInMenu(const float &x, const float &y) const;
 
+	void saveImage();
+
 	struct {
 		unsigned VAO, VBO, instanceVBO;
 	} m_particleRenderable;
@@ -50,7 +52,7 @@ private:
 
 	struct {
 		bool showMenu = true;
-		bool autoPlay = true;
+		bool autoPlay = false;
 		int particleAmt = 3500;
 		float flameRadius = 27.2f;
 		int sootRatio = 9;
@@ -58,6 +60,9 @@ private:
 		float fogOffset = 0.f;
 		float fogFactor = 1.f;
 		float timeOffset = 0.5f;
+
+		char imageFilename[256] = "flame.png";
+		bool saveOnNextRender = false;
 
 		ImVec4 menuBB;
 	} m_userOptions;
@@ -76,7 +81,10 @@ private:
 		float rasc = 0.f, dec = 3.1415f / 12, rad = 180.f;
 	} m_camera;
 
+	unsigned SCR_WIDTH;
+
 	sf::RenderWindow m_window;
+	bool m_running;
 
 	ParticleGenerator m_particles;
 };
